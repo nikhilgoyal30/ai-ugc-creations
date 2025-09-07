@@ -29,11 +29,33 @@ const UGCGenerator = () => {
     if (!uploadedImage || !caption) return;
     
     setIsGeneratingImage(true);
-    // Simulate API call
-    setTimeout(() => {
-      setGeneratedImage(uploadedImage); // Using uploaded image as placeholder
+    
+    try {
+      const response = await fetch('https://n8n.reclad.site/webhook-test/c82b79e7-a7f4-4527-a0a5-f126d29a93cb', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          image: uploadedImage,
+          caption: caption
+        })
+      });
+      
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+      
+      const result = await response.json();
+      setGeneratedImage(result.image || uploadedImage); // Use response image or fallback
+      
+    } catch (error) {
+      console.error('Error generating image:', error);
+      // Keep the uploaded image as fallback on error
+      setGeneratedImage(uploadedImage);
+    } finally {
       setIsGeneratingImage(false);
-    }, 3000);
+    }
   };
 
   const handleGenerateVideo = async () => {
