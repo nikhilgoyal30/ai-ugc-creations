@@ -41,8 +41,14 @@ const UGCGenerator = () => {
     
     toast({
       title: "Generating Image",
-      description: "Sending your product photo to AI for processing...",
+      description: "Processing your request (max 2 minutes)...",
     });
+    
+    // Create AbortController for 2-minute timeout
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => {
+      controller.abort();
+    }, 120000); // 2 minutes = 120,000ms
     
     try {
       const response = await fetch('https://n8n.reclad.site/webhook-test/c82b79e7-a7f4-4527-a0a5-f126d29a93cb', {
@@ -53,8 +59,12 @@ const UGCGenerator = () => {
         body: JSON.stringify({
           image: uploadedImage,
           caption: caption
-        })
+        }),
+        signal: controller.signal
       });
+      
+      // Clear timeout since we got a response
+      clearTimeout(timeoutId);
       
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);
@@ -74,24 +84,40 @@ const UGCGenerator = () => {
           title: "Image Generated!",
           description: "Your AI lifestyle image has been created successfully.",
         });
-      } else {
-        // If no image in response, use uploaded image as fallback
-        setGeneratedImage(uploadedImage);
+      } else if (result.url) {
+        setGeneratedImage(result.url);
         toast({
-          title: "Processing Complete",
-          description: "Image processing completed. Please check the result.",
+          title: "Image Generated!",
+          description: "Your AI lifestyle image has been created successfully.",
+        });
+      } else {
+        // If no image in response, display error
+        toast({
+          title: "No Image Received",
+          description: "The webhook processed successfully but no image was returned.",
+          variant: "destructive",
         });
       }
       
     } catch (error) {
+      // Clear timeout in case of error
+      clearTimeout(timeoutId);
+      
       console.error('Error generating image:', error);
-      toast({
-        title: "Generation Failed",
-        description: "There was an issue connecting to the AI service. Please try again.",
-        variant: "destructive",
-      });
-      // Use uploaded image as fallback on error
-      setGeneratedImage(uploadedImage);
+      
+      if (error.name === 'AbortError') {
+        toast({
+          title: "Request Timeout",
+          description: "The AI processing took longer than 2 minutes. Please try again with a simpler description.",
+          variant: "destructive",
+        });
+      } else {
+        toast({
+          title: "Generation Failed",
+          description: "There was an issue connecting to the AI service. Please try again.",
+          variant: "destructive",
+        });
+      }
     } finally {
       setIsGeneratingImage(false);
     }
@@ -275,6 +301,7 @@ const UGCGenerator = () => {
                     <div className="flex flex-col items-center justify-center h-64 bg-muted/50 rounded-lg">
                       <Loader2 className="w-8 h-8 animate-spin text-primary mb-4" />
                       <p className="text-muted-foreground">AI is creating your lifestyle image...</p>
+                      <p className="text-sm text-muted-foreground mt-2">This may take up to 2 minutes</p>
                     </div>
                   ) : generatedImage ? (
                     <div className="space-y-4">
