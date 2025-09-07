@@ -5,6 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { useState } from "react";
 import { Upload, Sparkles, Download, Play, RotateCcw, Loader2 } from "lucide-react";
 import Navigation from "@/components/Navigation";
+import { useToast } from "@/hooks/use-toast";
 
 const UGCGenerator = () => {
   const [uploadedImage, setUploadedImage] = useState<string | null>(null);
@@ -13,6 +14,7 @@ const UGCGenerator = () => {
   const [generatedVideo, setGeneratedVideo] = useState<string | null>(null);
   const [isGeneratingImage, setIsGeneratingImage] = useState(false);
   const [isGeneratingVideo, setIsGeneratingVideo] = useState(false);
+  const { toast } = useToast();
 
   const handleImageUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -26,9 +28,21 @@ const UGCGenerator = () => {
   };
 
   const handleGenerateImage = async () => {
-    if (!uploadedImage || !caption) return;
+    if (!uploadedImage || !caption) {
+      toast({
+        title: "Missing Information",
+        description: "Please upload an image and add a product description.",
+        variant: "destructive",
+      });
+      return;
+    }
     
     setIsGeneratingImage(true);
+    
+    toast({
+      title: "Generating Image",
+      description: "Sending your product photo to AI for processing...",
+    });
     
     try {
       const response = await fetch('https://n8n.reclad.site/webhook-test/c82b79e7-a7f4-4527-a0a5-f126d29a93cb', {
@@ -47,11 +61,36 @@ const UGCGenerator = () => {
       }
       
       const result = await response.json();
-      setGeneratedImage(result.image || uploadedImage); // Use response image or fallback
+      
+      if (result.image) {
+        setGeneratedImage(result.image);
+        toast({
+          title: "Image Generated!",
+          description: "Your AI lifestyle image has been created successfully.",
+        });
+      } else if (result.generated_image) {
+        setGeneratedImage(result.generated_image);
+        toast({
+          title: "Image Generated!",
+          description: "Your AI lifestyle image has been created successfully.",
+        });
+      } else {
+        // If no image in response, use uploaded image as fallback
+        setGeneratedImage(uploadedImage);
+        toast({
+          title: "Processing Complete",
+          description: "Image processing completed. Please check the result.",
+        });
+      }
       
     } catch (error) {
       console.error('Error generating image:', error);
-      // Keep the uploaded image as fallback on error
+      toast({
+        title: "Generation Failed",
+        description: "There was an issue connecting to the AI service. Please try again.",
+        variant: "destructive",
+      });
+      // Use uploaded image as fallback on error
       setGeneratedImage(uploadedImage);
     } finally {
       setIsGeneratingImage(false);
